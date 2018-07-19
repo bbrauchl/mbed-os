@@ -1330,6 +1330,19 @@
         "release_versions": ["2", "5"],
         "device_name": "MKL82Z128xxx7"
     },
+    "KE15Z": {
+      "supported_form_factors": ["ARDUINO"],
+      "core": "Cortex-M0+",
+      "supported_toolchains": ["GCC_ARM", "ARM", "IAR"],
+      "extra_labels": ["Freescale", "MCUXpresso_MCUS", "KSDK2_MCUS", "FRDM"],
+      "macros":["CPU_MKE15Z256VLL7", "FSL_RTOS_MBED"],
+      "is_disk_virtual": true,
+      "inherits": ["Target"],
+      "detect_code": ["0213"],
+      "device_has": ["USTICKER", "LPTICKER", "RTC", "ANALOGIN", "ANALOGOUT", "I2C", "I2CSLAVE", "INTERRUPTIN", "PORTIN", "PORTINOUT", "PORTOUT", "PWMOUT", "SEMIHOST", "SERIAL", "SLEEP", "SPI", "SPISLAVE", "STDIO_MESSAGES", "TRNG"],
+      "release_versions": ["2", "5"],
+      "device_name": "MKE15Z256xxx7"
+    },
     "USENSE": {
         "inherits": ["KL82Z"],
         "extra_labels_remove": ["FRDM"],
