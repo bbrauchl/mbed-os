@@ -85,6 +85,12 @@
 #define INITIAL_SP              (0x20012000UL)
 #endif
 
+#elif defined(TARGET_KE15Z)
+
+#ifndef INITIAL_SP
+#define INITIAL_SP              (0x20006000UL)
+#endif
+
 #elif defined(TARGET_K64F)
 
 #ifndef INITIAL_SP
