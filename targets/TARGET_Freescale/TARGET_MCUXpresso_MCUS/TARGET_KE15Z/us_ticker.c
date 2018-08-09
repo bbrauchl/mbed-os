@@ -46,7 +46,7 @@ static void lpit0_isr(void)
 void us_ticker_init(void)
 {
     /* Common for ticker/timer. */
-    uint32_t ScgLpFllAsyncDiv2Clk;
+    uint32_t lpitClockFreq;
     /* Structure to initialize LPIT. */
     lpit_config_t lpitConfig;
     /* Structure to initalize unchained channels of LPIT */
@@ -72,8 +72,8 @@ void us_ticker_init(void)
 
     LPIT_GetDefaultConfig(&lpitConfig);
     LPIT_Init(LPIT0, &lpitConfig);
-    CLOCK_SetIpSrc(kCLOCK_IpSrcFircAsync)
-    ScgLpFllAsyncDiv2Clk = CLOCK_GetFreq(kCLOCK_ScgLpFllAsyncDiv2Clk);
+    CLOCK_SetIpSrc(kCLOCK_Lpit0, kCLOCK_IpSrcFircAsync);
+    lpitClockFreq = CLOCK_GetIpFreq(kCLOCK_Lpit0);
 
     /* Let the timer to count if re-init. */
     if (!us_ticker_inited) {
