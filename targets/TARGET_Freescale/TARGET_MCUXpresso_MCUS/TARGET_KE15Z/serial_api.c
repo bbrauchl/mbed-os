@@ -28,12 +28,13 @@
 #include "fsl_lpuart.h"
 #include "peripheral_clock_defines.h"
 #include "PeripheralPins.h"
-#include "fsl_clock_config.h"
+#include "clock_config.h"
 
 static uint32_t serial_irq_ids[FSL_FEATURE_SOC_LPUART_COUNT] = {0};
 static uart_irq_handler irq_handler;
 /* Array of UART peripheral base address. */
 static LPUART_Type *const uart_addrs[] = LPUART_BASE_PTRS;
+static clock_ip_name_t const uart_clocks[] = LPUART_CLOCKS;
 /* LPUART bus clock frequency */
 static uint32_t lpuart_src_freq;
 
@@ -52,26 +53,8 @@ void serial_init(serial_t *obj, PinName tx, PinName rx)
 
     // since the LPuart initialization depends very much on the source clock and its
     // frequency, we do a check here and retrieve the frequency accordingly
-    switch (SIM->SOPT2 & SIM_SOPT2_LPUARTSRC_MASK) {
-        case SIM_SOPT2_LPUARTSRC(3U): {
-            lpuart_src_freq = CLOCK_GetInternalRefClkFreq();
-            break;
-        }
-        case SIM_SOPT2_LPUARTSRC(2U): {
-            lpuart_src_freq = CLOCK_GetOsc0ErClkFreq();
-            break;
-        }
-        case SIM_SOPT2_LPUARTSRC(1U): {
-            lpuart_src_freq = CLOCK_GetPllFllSelClkFreq();
-            break;
-        }
-        default: {
-            /* Set the LPUART clock source */
-            CLOCK_SetLpuartClock(2U);
-            lpuart_src_freq = CLOCK_GetOsc0ErClkFreq();
-            break;
-        }
-    }
+    lpuart_src_freq = CLOCK_GetIpFreq(uart_clocks[obj->index]);
+
 
     lpuart_config_t config;
     LPUART_GetDefaultConfig(&config);

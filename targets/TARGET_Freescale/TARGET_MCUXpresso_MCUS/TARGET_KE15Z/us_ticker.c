@@ -78,7 +78,7 @@ void us_ticker_init(void)
     /* Let the timer to count if re-init. */
     if (!us_ticker_inited) {
 
-        LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_0, ScgLpFllAsyncDiv2Clk / 1000000 - 1);
+        LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_0, lpitClockFreq / 1000000 - 1);
         LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_1, 0xFFFFFFFF);
         LPIT_SetupChannel(LPIT0, kLPIT_Chnl_0, &lpitChannelConfig);
         LPIT_SetupChannel(LPIT0, kLPIT_Chnl_1, &lpitChannelConfigChainMode);
@@ -89,7 +89,7 @@ void us_ticker_init(void)
     /* Configure interrupt generation counters and disable ticker interrupts. */
     LPIT_StopTimer(LPIT0, kLPIT_Chnl_3);
     LPIT_StopTimer(LPIT0, kLPIT_Chnl_2);
-    LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_2, ScgLpFllAsyncDiv2Clk / 1000000 - 1);
+    LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_2, lpitClockFreq / 1000000 - 1);
     LPIT_SetupChannel(LPIT0, kLPIT_Chnl_2, &lpitChannelConfig);
     LPIT_SetupChannel(LPIT0, kLPIT_Chnl_3, &lpitChannelConfigChainMode);
     NVIC_SetVector(LPIT0_IRQn, (uint32_t) lpit0_isr);
