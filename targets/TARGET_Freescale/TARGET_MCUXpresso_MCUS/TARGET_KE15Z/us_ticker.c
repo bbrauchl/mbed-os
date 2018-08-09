@@ -16,8 +16,8 @@
 #include <stddef.h>
 #include "us_ticker_api.h"
 #include "PeripheralNames.h"
-#include "fsl_pit.h"
-#include "fsl_clock_config.h"
+#include "fsl_lpit.h"
+#include "clock_config.h"
 
 const ticker_info_t* us_ticker_get_info()
 {
@@ -30,12 +30,12 @@ const ticker_info_t* us_ticker_get_info()
 
 static bool us_ticker_inited = false;
 
-static void pit_isr(void)
+static void lpit0_isr(void)
 {
-    PIT_ClearStatusFlags(PIT, kPIT_Chnl_3, PIT_TFLG_TIF_MASK);
-    PIT_ClearStatusFlags(PIT, kPIT_Chnl_2, PIT_TFLG_TIF_MASK);
-    PIT_StopTimer(PIT, kPIT_Chnl_2);
-    PIT_StopTimer(PIT, kPIT_Chnl_3);
+    LPIT_ClearStatusFlags(LPIT0, LPIT_MSR_TIF3_MASK);
+    LPIT_ClearStatusFlags(LPIT0, LPIT_MSR_TIF2_MASK);
+    LPIT_StopTimer(LPIT0, kLPIT_Chnl_2);
+    LPIT_StopTimer(LPIT0, kLPIT_Chnl_3);
 
     us_ticker_irq_handler();
 }
@@ -46,33 +46,55 @@ static void pit_isr(void)
 void us_ticker_init(void)
 {
     /* Common for ticker/timer. */
-    uint32_t busClock;
-    /* Structure to initialize PIT. */
-    pit_config_t pitConfig;
+    uint32_t ScgLpFllAsyncDiv2Clk;
+    /* Structure to initialize LPIT. */
+    lpit_config_t lpitConfig;
+    /* Structure to initalize unchained channels of LPIT */
+    lpit_chnl_params_t lpitChannelConfig = {
+                .chainChannel = false,
+                .timerMode = kLPIT_PeriodicCounter,
+                .triggerSelect = kLPIT_Trigger_TimerChn0,
+                .triggerSource = kLPIT_TriggerSource_External,
+                .enableReloadOnTrigger = false,
+                .enableStopOnTimeout = false,
+                .enableStartOnTrigger = false,
+    };
+    /* Structure to initalize chained channels of LPIT */
+    lpit_chnl_params_t lpitChannelConfigChainMode = {
+                .chainChannel = true,
+                .timerMode = kLPIT_PeriodicCounter,
+                .triggerSelect = kLPIT_Trigger_TimerChn0,
+                .triggerSource = kLPIT_TriggerSource_External,
+                .enableReloadOnTrigger = false,
+                .enableStopOnTimeout = false,
+                .enableStartOnTrigger = false,
+    };
 
-    PIT_GetDefaultConfig(&pitConfig);
-    PIT_Init(PIT, &pitConfig);
-
-    busClock = CLOCK_GetFreq(kCLOCK_BusClk);
+    LPIT_GetDefaultConfig(&lpitConfig);
+    LPIT_Init(LPIT0, &lpitConfig);
+    CLOCK_SetIpSrc(kCLOCK_IpSrcFircAsync)
+    ScgLpFllAsyncDiv2Clk = CLOCK_GetFreq(kCLOCK_ScgLpFllAsyncDiv2Clk);
 
     /* Let the timer to count if re-init. */
     if (!us_ticker_inited) {
 
-        PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, busClock / 1000000 - 1);
-        PIT_SetTimerPeriod(PIT, kPIT_Chnl_1, 0xFFFFFFFF);
-        PIT_SetTimerChainMode(PIT, kPIT_Chnl_1, true);
-        PIT_StartTimer(PIT, kPIT_Chnl_0);
-        PIT_StartTimer(PIT, kPIT_Chnl_1);
+        LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_0, ScgLpFllAsyncDiv2Clk / 1000000 - 1);
+        LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_1, 0xFFFFFFFF);
+        LPIT_SetupChannel(LPIT0, kLPIT_Chnl_0, &lpitChannelConfig);
+        LPIT_SetupChannel(LPIT0, kLPIT_Chnl_1, &lpitChannelConfigChainMode);
+        LPIT_StartTimer(LPIT0, kLPIT_Chnl_0);
+        LPIT_StartTimer(LPIT0, kLPIT_Chnl_1);
     }
 
     /* Configure interrupt generation counters and disable ticker interrupts. */
-    PIT_StopTimer(PIT, kPIT_Chnl_3);
-    PIT_StopTimer(PIT, kPIT_Chnl_2);
-    PIT_SetTimerPeriod(PIT, kPIT_Chnl_2, busClock / 1000000 - 1);
-    PIT_SetTimerChainMode(PIT, kPIT_Chnl_3, true);
-    NVIC_SetVector(PIT0_IRQn, (uint32_t) pit_isr);
-    NVIC_EnableIRQ(PIT0_IRQn);
-    PIT_DisableInterrupts(PIT, kPIT_Chnl_3, kPIT_TimerInterruptEnable);
+    LPIT_StopTimer(LPIT0, kLPIT_Chnl_3);
+    LPIT_StopTimer(LPIT0, kLPIT_Chnl_2);
+    LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_2, ScgLpFllAsyncDiv2Clk / 1000000 - 1);
+    LPIT_SetupChannel(LPIT0, kLPIT_Chnl_2, &lpitChannelConfig);
+    LPIT_SetupChannel(LPIT0, kLPIT_Chnl_3, &lpitChannelConfigChainMode);
+    NVIC_SetVector(LPIT0_IRQn, (uint32_t) lpit0_isr);
+    NVIC_EnableIRQ(LPIT0_IRQn);
+    LPIT_DisableInterrupts(LPIT0, LPIT_MIER_TIE3_MASK);
 
     us_ticker_inited = true;
 }
@@ -83,7 +105,7 @@ void us_ticker_init(void)
  */
 uint32_t us_ticker_read()
 {
-    return ~(PIT_GetCurrentTimerCount(PIT, kPIT_Chnl_1));
+    return ~(LPIT_GetCurrentTimerCount(LPIT0, kLPIT_Chnl_1));
 }
 
 /** Disable us ticker interrupt
@@ -91,7 +113,7 @@ uint32_t us_ticker_read()
  */
 void us_ticker_disable_interrupt(void)
 {
-    PIT_DisableInterrupts(PIT, kPIT_Chnl_3, kPIT_TimerInterruptEnable);
+    LPIT_DisableInterrupts(LPIT0, LPIT_MIER_TIE3_MASK);
 }
 
 /** Clear us ticker interrupt
@@ -99,7 +121,7 @@ void us_ticker_disable_interrupt(void)
  */
 void us_ticker_clear_interrupt(void)
 {
-    PIT_ClearStatusFlags(PIT, kPIT_Chnl_3, PIT_TFLG_TIF_MASK);
+    LPIT_ClearStatusFlags(LPIT0, LPIT_MSR_TIF3_MASK);
 }
 
 /** Set interrupt for specified timestamp
@@ -121,12 +143,12 @@ void us_ticker_set_interrupt(timestamp_t timestamp)
         delta_ticks = 1;
     }
 
-    PIT_StopTimer(PIT, kPIT_Chnl_3);
-    PIT_StopTimer(PIT, kPIT_Chnl_2);
-    PIT_SetTimerPeriod(PIT, kPIT_Chnl_3, delta_ticks);
-    PIT_EnableInterrupts(PIT, kPIT_Chnl_3, kPIT_TimerInterruptEnable);
-    PIT_StartTimer(PIT, kPIT_Chnl_3);
-    PIT_StartTimer(PIT, kPIT_Chnl_2);
+    LPIT_StopTimer(LPIT0, kLPIT_Chnl_3);
+    LPIT_StopTimer(LPIT0, kLPIT_Chnl_2);
+    LPIT_SetTimerPeriod(LPIT0, kLPIT_Chnl_3, delta_ticks);
+    LPIT_EnableInterrupts(LPIT0, LPIT_MIER_TIE3_MASK);
+    LPIT_StartTimer(LPIT0, kLPIT_Chnl_3);
+    LPIT_StartTimer(LPIT0, kLPIT_Chnl_2);
 }
 
 /** Fire us ticker interrupt
@@ -134,7 +156,7 @@ void us_ticker_set_interrupt(timestamp_t timestamp)
  */
 void us_ticker_fire_interrupt(void)
 {
-    NVIC_SetPendingIRQ(PIT0_IRQn);
+    NVIC_SetPendingIRQ(LPIT0_IRQn);
 }
 
 void us_ticker_free(void)
