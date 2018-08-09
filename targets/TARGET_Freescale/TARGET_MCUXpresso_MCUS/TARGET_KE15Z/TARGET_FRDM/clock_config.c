@@ -131,18 +131,6 @@ outputs:
 - {id: LPO1KCLK.outFreq, value: 1 kHz}
 - {id: LPO_clock.outFreq, value: 128 kHz}
 - {id: OSC32_CLK.outFreq, value: 32.768 kHz}
-- {id: PCC.PCC_ADC0_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_ADC1_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_FLEXIO_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPI2C0_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPI2C1_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPIT0_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPSPI0_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPSPI1_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPTMR0_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPUART0_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPUART1_CLK.outFreq, value: 8 MHz}
-- {id: PCC.PCC_LPUART2_CLK.outFreq, value: 8 MHz}
 - {id: RTC32KCLK.outFreq, value: 32.768 kHz}
 - {id: SIRCDIV2_CLK.outFreq, value: 4 MHz}
 - {id: SIRC_CLK.outFreq, value: 8 MHz}
@@ -152,18 +140,6 @@ outputs:
 settings:
 - {id: SCGMode, value: LPFLL}
 - {id: OSC32_CR_ROSCE_CFG, value: Enabled}
-- {id: PCC.PCC_ADC0_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_ADC1_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_FLEXIO_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPI2C0_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPI2C1_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPIT0_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPSPI0_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPSPI1_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPTMR0_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPUART0_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPUART1_SEL.sel, value: SCG.SOSCDIV2_CLK}
-- {id: PCC.PCC_LPUART2_SEL.sel, value: SCG.SOSCDIV2_CLK}
 - {id: RTCCLKSELConfig, value: 'yes'}
 - {id: SCG.DIVCORE.scale, value: '1', locked: true}
 - {id: SCG.DIVSLOW.scale, value: '3', locked: true}
@@ -174,7 +150,6 @@ settings:
 - {id: SCG.SIRCDIV2.scale, value: '2'}
 - {id: SCG.SOSCDIV2.scale, value: '1'}
 - {id: SCG.TRIMDIV.scale, value: '4'}
-- {id: 'SCG::VCCR[DIVSLOW].bitField', value: BitFieldValue}
 - {id: SCG_LPFLLCSR_LPFLLEN_CFG, value: Enabled}
 - {id: SCG_SIRCCSR_SIRCLPEN_CFG, value: Disabled}
 - {id: SCG_SOSCCFG_OSC_MODE_CFG, value: ModeOscLowPower}
@@ -254,30 +229,6 @@ void BOARD_BootClockRUN(void)
     SystemCoreClock = BOARD_BOOTCLOCKRUN_CORE_CLOCK;
     /* Set RTC 32KHz clock input source. */
     CLOCK_CONFIG_SetRtc32KClkSrc(SIM_CHIPCTL_RTC32KCLKSEL_OSC32);
-    /* Set PCC ADC0 selection */
-    CLOCK_SetIpSrc(kCLOCK_Adc0, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC ADC1 selection */
-    CLOCK_SetIpSrc(kCLOCK_Adc1, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPSPI0 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpspi0, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPSPI1 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpspi1, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPI2C0 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpi2c0, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPI2C1 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpi2c1, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPUART0 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpuart0, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPUART1 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpuart1, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPUART2 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpuart2, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC FLEXIO selection */
-    CLOCK_SetIpSrc(kCLOCK_Flexio0, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPTMR0 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lptmr0, kCLOCK_IpSrcSysOscAsync);
-    /* Set PCC LPIT0 selection */
-    CLOCK_SetIpSrc(kCLOCK_Lpit0, kCLOCK_IpSrcSysOscAsync);
 }
 
 /*******************************************************************************
