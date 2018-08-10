@@ -40,8 +40,8 @@ void NMI_Handler(void)
     gpio_init_in(&gpio, PTA4);
 }
 
-// Set the UART clock source
-void serial_clock_init(void)
-{
-    CLOCK_SetLpuartClock(2U);
-}
+// // Set the UART clock source
+// void serial_clock_init(void)
+// {
+//     CLOCK_SetLpuartClock(2U);
+// }

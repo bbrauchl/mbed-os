@@ -33,16 +33,4 @@
 
 #include "fsl_clock.h"
 
-/* Array for I2C module clocks */
-#define I2C_CLOCK_FREQS               \
-    {                                 \
-        I2C0_CLK_SRC, I2C1_CLK_SRC    \
-    }
-
-/* Array for DSPI module clocks */
-#define SPI_CLOCK_FREQS              \
-    {                                \
-        DSPI0_CLK_SRC, DSPI1_CLK_SRC   \
-    }
-
 #endif /* _FSL_PERIPHERAL_CLOCK_H_ */
