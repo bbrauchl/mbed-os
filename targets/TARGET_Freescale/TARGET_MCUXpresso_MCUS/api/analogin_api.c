@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef ANALOGIN_API_C
+#define ANALOGIN_API_C
+
 #include "mbed_assert.h"
 #include "analogin_api.h"
 
@@ -114,3 +118,4 @@ const PinMap *analogin_pinmap()
 }
 
 #endif
+#endif /* ANALOGIN_API_C */
