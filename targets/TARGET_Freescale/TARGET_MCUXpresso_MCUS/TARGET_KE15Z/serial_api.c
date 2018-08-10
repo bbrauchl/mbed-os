@@ -49,7 +49,7 @@ void serial_init(serial_t *obj, PinName tx, PinName rx)
     MBED_ASSERT((int)obj->index != NC);
 
     /* Set the UART clock source */
-    serial_clock_init();
+    CLOCK_SetIpSrc(uart_clocks[obj->index], kCLOCK_IpSrcFircAsync);
 
     // since the LPuart initialization depends very much on the source clock and its
     // frequency, we do a check here and retrieve the frequency accordingly
