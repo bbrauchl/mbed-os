@@ -23,14 +23,14 @@
 #include "cmsis.h"
 #include "pinmap.h"
 #include "mbed_error.h"
-#include "fsl_dspi.h"
+#include "fsl_lpspi.h"
 #include "peripheral_clock_defines.h"
 #include "PeripheralPins.h"
 
 /* Array of SPI peripheral base address. */
-static SPI_Type *const spi_address[] = SPI_BASE_PTRS;
+static LPSPI_Type *const spi_address[] = LPSPI_BASE_PTRS;
 /* Array of SPI bus clock frequencies */
-static clock_name_t const spi_clocks[] = SPI_CLOCK_FREQS;
+static clock_ip_name_t const spi_clocks[] = LPSPI_CLOCKS;
 
 void spi_init(spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ssel)
 {
@@ -52,68 +52,81 @@ void spi_init(spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ssel
     if (ssel != NC) {
         pinmap_pinout(ssel, PinMap_SPI_SSEL);
     }
+
+    //set the clock source of lpspi
+    CLOCK_SetIpSrc(spi_clocks[obj->instance], kCLOCK_IpSrcFircAsync);
 }
 
 void spi_free(spi_t *obj)
 {
-    DSPI_Deinit(spi_address[obj->instance]);
+    LPSPI_Deinit(spi_address[obj->instance]);
 }
 
 void spi_format(spi_t *obj, int bits, int mode, int slave)
 {
-    dspi_master_config_t master_config;
-    dspi_slave_config_t slave_config;
+    lpspi_master_config_t master_config;
+    lpspi_slave_config_t slave_config;
 
     if (slave) {
         /* Slave config */
-        DSPI_SlaveGetDefaultConfig(&slave_config);
-        slave_config.whichCtar = kDSPI_Ctar0;
-        slave_config.ctarConfig.bitsPerFrame = (uint32_t)bits;;
-        slave_config.ctarConfig.cpol = (mode & 0x2) ? kDSPI_ClockPolarityActiveLow : kDSPI_ClockPolarityActiveHigh;
-        slave_config.ctarConfig.cpha = (mode & 0x1) ? kDSPI_ClockPhaseSecondEdge : kDSPI_ClockPhaseFirstEdge;
+        LPSPI_SlaveGetDefaultConfig(&slave_config);
+        slave_config.bitsPerFrame = (uint32_t)bits;
+        slave_config.cpol = (mode & 0x2) ? kLPSPI_ClockPolarityActiveLow : kLPSPI_ClockPolarityActiveHigh;
+        slave_config.cpha = (mode & 0x1) ? kLPSPI_ClockPhaseSecondEdge : kLPSPI_ClockPhaseFirstEdge;
 
-        DSPI_SlaveInit(spi_address[obj->instance], &slave_config);
+        LPSPI_SlaveInit(spi_address[obj->instance], &slave_config);
     } else {
         /* Master config */
-        DSPI_MasterGetDefaultConfig(&master_config);
-        master_config.ctarConfig.bitsPerFrame = (uint32_t)bits;;
-        master_config.ctarConfig.cpol = (mode & 0x2) ? kDSPI_ClockPolarityActiveLow : kDSPI_ClockPolarityActiveHigh;
-        master_config.ctarConfig.cpha = (mode & 0x1) ? kDSPI_ClockPhaseSecondEdge : kDSPI_ClockPhaseFirstEdge;
-        master_config.ctarConfig.direction = kDSPI_MsbFirst;
-        master_config.ctarConfig.pcsToSckDelayInNanoSec = 0;
+        LPSPI_MasterGetDefaultConfig(&master_config);
+        master_config.bitsPerFrame = (uint32_t)bits;
+        master_config.cpol = (mode & 0x2) ? kLPSPI_ClockPolarityActiveLow : kLPSPI_ClockPolarityActiveHigh;
+        master_config.cpha = (mode & 0x1) ? kLPSPI_ClockPhaseSecondEdge : kLPSPI_ClockPhaseFirstEdge;
+        master_config.direction = kLPSPI_MsbFirst;
 
-        DSPI_MasterInit(spi_address[obj->instance], &master_config, CLOCK_GetFreq(spi_clocks[obj->instance]));
+        LPSPI_MasterInit(spi_address[obj->instance], &master_config, CLOCK_GetIpFreq(spi_clocks[obj->instance]));
     }
 }
 
 void spi_frequency(spi_t *obj, int hz)
 {
-    uint32_t busClock = CLOCK_GetFreq(spi_clocks[obj->instance]);
-    DSPI_MasterSetBaudRate(spi_address[obj->instance], kDSPI_Ctar0, (uint32_t)hz, busClock);
+    uint32_t lpspiClock = CLOCK_GetIpFreq(spi_clocks[obj->instance]);
+    uint32_t tcrPrescaleValue = 0;
+
+    /* Disable the LPSPI module before setting the baudrate */
+    LPSPI_Enable(spi_address[obj->instance], false);
+    LPSPI_MasterSetBaudRate(spi_address[obj->instance], (uint32_t)hz, lpspiClock, &tcrPrescaleValue);
     //Half clock period delay after SPI transfer
-    DSPI_MasterSetDelayTimes(spi_address[obj->instance], kDSPI_Ctar0, kDSPI_LastSckToPcs, busClock, 500000000 / hz);
+    LPSPI_MasterSetDelayTimes(spi_address[obj->instance], kLPSPI_LastSckToPcs, lpspiClock, 500000000 / hz);
+
+    spi_address[obj->instance]->TCR = (spi_address[obj->instance]->TCR & ~LPSPI_TCR_PRESCALE_MASK) | LPSPI_TCR_PRESCALE(tcrPrescaleValue);
+
+    /* Enable the LPSPI module */
+    LPSPI_Enable(spi_address[obj->instance], true);
 }
 
 static inline int spi_readable(spi_t * obj)
 {
-    return (DSPI_GetStatusFlags(spi_address[obj->instance]) & kDSPI_RxFifoDrainRequestFlag);
+    return (LPSPI_GetStatusFlags(spi_address[obj->instance]) & kLPSPI_RxDataReadyFlag);
 }
 
 int spi_master_write(spi_t *obj, int value)
 {
-    dspi_command_data_config_t command;
+    lpspi_transfer_t masterXfer;
     uint32_t rx_data;
-    DSPI_GetDefaultDataCommandConfig(&command);
-    command.isEndOfQueue = true;
 
-    DSPI_MasterWriteDataBlocking(spi_address[obj->instance], &command, (uint16_t)value);
+    masterXfer.txData = (uint8_t *)&value;
+    masterXfer.rxData = NULL;
+    masterXfer.dataSize = 1;
+    masterXfer.configFlags = kLPSPI_MasterPcs0 | kLPSPI_MasterPcsContinuous | kLPSPI_SlaveByteSwap;
 
-    DSPI_ClearStatusFlags(spi_address[obj->instance], kDSPI_TxFifoFillRequestFlag);
+    LPSPI_MasterTransferBlocking(spi_address[obj->instance], &masterXfer);
 
     // wait rx buffer full
     while (!spi_readable(obj));
-    rx_data = DSPI_ReadData(spi_address[obj->instance]);
-    DSPI_ClearStatusFlags(spi_address[obj->instance], kDSPI_RxFifoDrainRequestFlag | kDSPI_EndOfQueueFlag);
+    rx_data = LPSPI_ReadData(spi_address[obj->instance]);
+
+    LPSPI_ClearStatusFlags(spi_address[obj->instance], kLPSPI_TransferCompleteFlag);
+
     return rx_data & 0xffff;
 }
 
@@ -121,13 +134,15 @@ int spi_master_block_write(spi_t *obj, const char *tx_buffer, int tx_length,
                            char *rx_buffer, int rx_length, char write_fill) {
     int total = (tx_length > rx_length) ? tx_length : rx_length;
 
-    for (int i = 0; i < total; i++) {
-        char out = (i < tx_length) ? tx_buffer[i] : write_fill;
-        char in = spi_master_write(obj, out);
-        if (i < rx_length) {
-            rx_buffer[i] = in;
-        }
-    }
+    // Default write is done in each and every call, in future can create HAL API instead
+    LPSPI_SetDummyData(spi_address[obj->instance], write_fill);
+
+    LPSPI_MasterTransferBlocking(spi_address[obj->instance], &(lpspi_transfer_t){
+          .txData = (uint8_t *)tx_buffer,
+          .rxData = (uint8_t *)rx_buffer,
+          .dataSize = total,
+          .configFlags = kLPSPI_MasterPcs0 | kLPSPI_MasterPcsContinuous | kLPSPI_SlaveByteSwap,
+    });
 
     return total;
 }
@@ -142,14 +157,22 @@ int spi_slave_read(spi_t *obj)
     uint32_t rx_data;
 
     while (!spi_readable(obj));
-    rx_data = DSPI_ReadData(spi_address[obj->instance]);
-    DSPI_ClearStatusFlags(spi_address[obj->instance], kDSPI_RxFifoDrainRequestFlag);
+    rx_data = LPSPI_ReadData(spi_address[obj->instance]);
+
     return rx_data & 0xffff;
 }
 
 void spi_slave_write(spi_t *obj, int value)
 {
-    DSPI_SlaveWriteDataBlocking(spi_address[obj->instance], (uint32_t)value);
+    /*Write the word to TX register*/
+    LPSPI_WriteData(spi_address[obj->instance], (uint32_t)value);
+
+    /* Transfer is not complete until transfer complete flag sets */
+    while (!(LPSPI_GetStatusFlags(spi_address[obj->instance]) & kLPSPI_FrameCompleteFlag))
+    {
+    }
+
+    LPSPI_ClearStatusFlags(spi_address[obj->instance], kLPSPI_FrameCompleteFlag);
 }
 
 #endif
