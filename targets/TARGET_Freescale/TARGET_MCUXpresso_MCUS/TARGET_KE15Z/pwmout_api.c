@@ -26,6 +26,7 @@
 static float pwm_clock_mhz;
 /* Array of FTM peripheral base address. */
 static FTM_Type *const ftm_addrs[] = FTM_BASE_PTRS;
+static clock_ip_name_t const ftm_clocks[] = FTM_CLOCKS;
 
 void pwmout_init(pwmout_t* obj, PinName pin)
 {
@@ -34,9 +35,10 @@ void pwmout_init(pwmout_t* obj, PinName pin)
 
     obj->pwm_name = pwm;
 
-    uint32_t pwm_base_clock;
-    pwm_base_clock = CLOCK_GetFreq(kCLOCK_BusClk);
-    float clkval = (float)pwm_base_clock / 1000000.0f;
+    uint32_t pwmClock;
+    CLOCK_SetIpSrc(ftm_clocks[obj->pwm_name >> TPM_SHIFT], kCLOCK_IpSrcFircAsync);
+    pwmClock = CLOCK_GetIpFreq(ftm_clocks[obj->pwm_name >> TPM_SHIFT]);
+    float clkval = (float)pwmClock / 1000000.0f;
     uint32_t clkdiv = 0;
     while (clkval > 1) {
         clkdiv++;
@@ -56,7 +58,7 @@ void pwmout_init(pwmout_t* obj, PinName pin)
     /* Initialize FTM module */
     FTM_Init(ftm_addrs[instance], &ftmInfo);
 
-    ftm_addrs[instance]->CONF |= FTM_CONF_NUMTOF(3);
+    ftm_addrs[instance]->CONF |= FTM_CONF_LDFQ(3);
 
     ftm_chnl_pwm_signal_param_t config = {
         .chnlNumber = (ftm_chnl_t)channel,
@@ -65,7 +67,7 @@ void pwmout_init(pwmout_t* obj, PinName pin)
         .firstEdgeDelayPercent = 0
     };
     // default to 20ms: standard for servos, and fine for e.g. brightness control
-    FTM_SetupPwm(ftm_addrs[instance], &config, 1, kFTM_EdgeAlignedPwm, 50, pwm_base_clock);
+    FTM_SetupPwm(ftm_addrs[instance], &config, 1, kFTM_EdgeAlignedPwm, 50, pwmClock);
 
     FTM_StartTimer(ftm_addrs[instance], kFTM_SystemClock);
 
