@@ -28,9 +28,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DMA_API_C
-#define DMA_API_C
-
 #include "fsl_dmamux.h"
 #include "dma_api.h"
 
@@ -71,5 +68,3 @@ int dma_channel_free(int channelid)
 
     return 0;
 }
-
-#endif /* DMA_API_C */
