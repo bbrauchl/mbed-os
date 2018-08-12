@@ -52,8 +52,11 @@
 /* Entry Point */
 ENTRY(Reset_Handler)
 
+__ram_vector_table__ = 1;
+
 HEAP_SIZE  = DEFINED(__heap_size__)  ? __heap_size__  : 0x0400;
 STACK_SIZE = DEFINED(__stack_size__) ? __stack_size__ : 0x0400;
+M_VECTOR_RAM_SIZE = DEFINED(__ram_vector_table__) ? 0x03c0 : 0x0;
 
 /* Specify the memory areas */
 MEMORY
@@ -70,12 +73,11 @@ SECTIONS
   /* The startup code goes first into internal flash */
   .interrupts :
   {
+    __VECTOR_TABLE = .;
     . = ALIGN(4);
-    __VECTOR_RAM__ = .;
     KEEP(*(.isr_vector))     /* Startup code */
     . = ALIGN(4);
   } > m_interrupts
-
   .flash_config :
   {
     . = ALIGN(4);
@@ -181,6 +183,21 @@ SECTIONS
     . = ALIGN(8);
     _mtb_end = .;
   } > m_data
+
+  /* section for vectors to be stored in ram */
+  .interrupts_ram :
+  {
+    . = ALIGN(4);
+    __VECTOR_RAM__ = .;
+    __interrupts_ram_start__ = .;
+    *(.m_interrupts_ram)     /* This is a user defined section */
+    . += M_VECTOR_RAM_SIZE;
+    . = ALIGN(4);
+    __interrupts_ram_end__ = .; /* Define a global symbol at data end */
+  } > m_data
+
+  __VECTOR_RAM = DEFINED(__ram_vector_table__) ? __VECTOR_RAM__ : ORIGIN(m_interrupts);
+  __RAM_VECTOR_TABLE_SIZE_BYTES = DEFINED(__ram_vector_table__) ? (__interrupts_ram_end__ - __interrupts_ram_start__) : 0x0;
 
   .data : AT(__DATA_ROM)
   {
