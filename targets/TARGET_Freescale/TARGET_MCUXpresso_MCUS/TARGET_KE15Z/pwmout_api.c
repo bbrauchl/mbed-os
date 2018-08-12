@@ -36,8 +36,8 @@ void pwmout_init(pwmout_t* obj, PinName pin)
     obj->pwm_name = pwm;
 
     uint32_t pwmClock;
-    CLOCK_SetIpSrc(ftm_clocks[obj->pwm_name >> TPM_SHIFT], kCLOCK_IpSrcFircAsync);
-    pwmClock = CLOCK_GetIpFreq(ftm_clocks[obj->pwm_name >> TPM_SHIFT]);
+    CLOCK_SetIpSrc(ftm_clocks[obj->pwm_name >> FTM_SHIFT], kCLOCK_IpSrcFircAsync);
+    pwmClock = CLOCK_GetIpFreq(ftm_clocks[obj->pwm_name >> FTM_SHIFT]);
     float clkval = (float)pwmClock / 1000000.0f;
     uint32_t clkdiv = 0;
     while (clkval > 1) {
@@ -50,7 +50,7 @@ void pwmout_init(pwmout_t* obj, PinName pin)
 
     pwm_clock_mhz = clkval;
     uint32_t channel = pwm & 0xF;
-    uint32_t instance = pwm >> TPM_SHIFT;
+    uint32_t instance = pwm >> FTM_SHIFT;
     ftm_config_t ftmInfo;
 
     FTM_GetDefaultConfig(&ftmInfo);
@@ -77,7 +77,7 @@ void pwmout_init(pwmout_t* obj, PinName pin)
 
 void pwmout_free(pwmout_t* obj)
 {
-    FTM_Deinit(ftm_addrs[obj->pwm_name >> TPM_SHIFT]);
+    FTM_Deinit(ftm_addrs[obj->pwm_name >> FTM_SHIFT]);
 }
 
 void pwmout_write(pwmout_t* obj, float value)
@@ -88,7 +88,7 @@ void pwmout_write(pwmout_t* obj, float value)
         value = 1.0f;
     }
 
-    FTM_Type *base = ftm_addrs[obj->pwm_name >> TPM_SHIFT];
+    FTM_Type *base = ftm_addrs[obj->pwm_name >> FTM_SHIFT];
     uint16_t mod = base->MOD & FTM_MOD_MOD_MASK;
     uint32_t new_count = (uint32_t)((float)(mod) * value);
     // Update of CnV register
@@ -100,7 +100,7 @@ void pwmout_write(pwmout_t* obj, float value)
 
 float pwmout_read(pwmout_t* obj)
 {
-    FTM_Type *base = ftm_addrs[obj->pwm_name >> TPM_SHIFT];
+    FTM_Type *base = ftm_addrs[obj->pwm_name >> FTM_SHIFT];
     uint16_t count = (base->CONTROLS[obj->pwm_name & 0xF].CnV) & FTM_CnV_VAL_MASK;
     uint16_t mod = base->MOD & FTM_MOD_MOD_MASK;
 
@@ -123,7 +123,7 @@ void pwmout_period_ms(pwmout_t* obj, int ms)
 // Set the PWM period, keeping the duty cycle the same.
 void pwmout_period_us(pwmout_t* obj, int us)
 {
-    FTM_Type *base = ftm_addrs[obj->pwm_name >> TPM_SHIFT];
+    FTM_Type *base = ftm_addrs[obj->pwm_name >> FTM_SHIFT];
     float dc = pwmout_read(obj);
 
     // Stop FTM clock to ensure instant update of MOD register
@@ -143,7 +143,7 @@ void pwmout_pulsewidth_ms(pwmout_t* obj, int ms)
 
 void pwmout_pulsewidth_us(pwmout_t* obj, int us)
 {
-    FTM_Type *base = ftm_addrs[obj->pwm_name >> TPM_SHIFT];
+    FTM_Type *base = ftm_addrs[obj->pwm_name >> FTM_SHIFT];
     uint32_t value = (uint32_t)(pwm_clock_mhz * (float)us);
 
     // Update of CnV register
