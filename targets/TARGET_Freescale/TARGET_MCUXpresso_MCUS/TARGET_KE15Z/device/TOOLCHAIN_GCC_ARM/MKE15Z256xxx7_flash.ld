@@ -71,6 +71,7 @@ SECTIONS
   .interrupts :
   {
     . = ALIGN(4);
+    __VECTOR_RAM__ = .;
     KEEP(*(.isr_vector))     /* Startup code */
     . = ALIGN(4);
   } > m_interrupts
