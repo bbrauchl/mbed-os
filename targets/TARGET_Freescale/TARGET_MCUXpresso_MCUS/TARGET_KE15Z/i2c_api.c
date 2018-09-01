@@ -49,6 +49,7 @@ void i2c_init(i2c_t *obj, PinName sda, PinName scl)
 
     LPI2C_MasterGetDefaultConfig(&master_config);
     CLOCK_SetIpSrc(i2c_clocks[obj->instance], kCLOCK_IpSrcFircAsync);
+    LPI2C_MasterInit(i2c_addrs[obj->instance], &master_config, CLOCK_GetIpFreq(i2c_clocks[obj->instance]));
 
     pinmap_pinout(sda, PinMap_I2C_SDA);
     pinmap_pinout(scl, PinMap_I2C_SCL);
