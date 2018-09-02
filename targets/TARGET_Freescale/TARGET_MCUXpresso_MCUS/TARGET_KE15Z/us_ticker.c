@@ -71,6 +71,7 @@ void us_ticker_init(void)
     };
 
     LPIT_GetDefaultConfig(&lpitConfig);
+    lpitConfig.enableRunInDoze = true; //The lpit must be enabled in doze because the os puts the part in low power mode when idle.
     LPIT_Init(LPIT0, &lpitConfig);
     CLOCK_SetIpSrc(kCLOCK_Lpit0, kCLOCK_IpSrcFircAsync);
     lpitClockFreq = CLOCK_GetIpFreq(kCLOCK_Lpit0);
