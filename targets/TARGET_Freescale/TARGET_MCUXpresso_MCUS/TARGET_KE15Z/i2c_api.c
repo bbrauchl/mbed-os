@@ -21,95 +21,94 @@
 #include "cmsis.h"
 #include "pinmap.h"
 #include "fsl_lpi2c.h"
-#include "fsl_port.h"
-#include "peripheral_clock_defines.h"
 #include "PeripheralPins.h"
 
-/* 7 bit IIC addr - R/W flag not included */
-static int i2c_address = 0;
-/* With LSPI we must send a byte of data with the start condition, so it is not sent until the next write after a i2c_start call */
-static bool i2c_send_start_condition[FSL_FEATURE_SOC_LPI2C_COUNT] = {0};
 /* Array of I2C peripheral base address. */
 static LPI2C_Type *const i2c_addrs[] = LPI2C_BASE_PTRS;
-/* Array of I2C bus clock frequencies */
-static clock_ip_name_t const i2c_clocks[] = LPI2C_CLOCKS;
+
+extern void i2c_setup_clock();
+extern uint32_t i2c_get_clock();
+void pin_mode_opendrain(PinName pin, bool enable);
 
 void i2c_init(i2c_t *obj, PinName sda, PinName scl)
 {
     uint32_t i2c_sda = pinmap_peripheral(sda, PinMap_I2C_SDA);
     uint32_t i2c_scl = pinmap_peripheral(scl, PinMap_I2C_SCL);
-    PORT_Type *port_addrs[] = PORT_BASE_PTRS;
-    PORT_Type *base = port_addrs[sda >> GPIO_PORT_SHIFT];
-
     obj->instance = pinmap_merge(i2c_sda, i2c_scl);
-    obj->next_repeated_start = 0;
+
     MBED_ASSERT((int)obj->instance != NC);
 
     lpi2c_master_config_t master_config;
 
+    i2c_setup_clock();
+
     LPI2C_MasterGetDefaultConfig(&master_config);
-    CLOCK_SetIpSrc(i2c_clocks[obj->instance], kCLOCK_IpSrcFircAsync);
-    LPI2C_MasterInit(i2c_addrs[obj->instance], &master_config, CLOCK_GetIpFreq(i2c_clocks[obj->instance]));
+    LPI2C_MasterInit(i2c_addrs[obj->instance], &master_config, i2c_get_clock());
 
     pinmap_pinout(sda, PinMap_I2C_SDA);
     pinmap_pinout(scl, PinMap_I2C_SCL);
 
-    /* Enable internal pullup resistor */
-    base->PCR[sda & 0xFF] |= (PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
-    base->PCR[scl & 0xFF] |= (PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
+    pin_mode(sda, PullUp_22K);
+    pin_mode(scl, PullUp_22K);
 
-    /* Open Drain mode enabled by LPI2C_MasterInit */
+    pin_mode_opendrain(sda, true);
+    pin_mode_opendrain(scl, true);
 }
 
 int i2c_start(i2c_t *obj)
 {
-    /* LPSPI is set up to only produce start conditions while sending data. This means that start condition has to be stored for next send */
-    i2c_send_start_condition[obj->instance] = true;
-    return 0;
+    LPI2C_Type *base = i2c_addrs[obj->instance];
+    int status = 0;
+
+    obj->address_set = 0;
+
+    /* Clear all flags. */
+    LPI2C_MasterClearStatusFlags(base, kLPI2C_MasterEndOfPacketFlag |
+                                       kLPI2C_MasterStopDetectFlag |
+                                       kLPI2C_MasterNackDetectFlag |
+                                       kLPI2C_MasterArbitrationLostFlag |
+                                       kLPI2C_MasterFifoErrFlag |
+                                       kLPI2C_MasterPinLowTimeoutFlag |
+                                       kLPI2C_MasterDataMatchFlag);
+
+    /* Turn off auto-stop option. */
+    base->MCFGR1 &= ~LPI2C_MCFGR1_AUTOSTOP_MASK;
+
+    return status;
 }
 
 int i2c_stop(i2c_t *obj)
 {
-    /* Remove pending start condition */
-    i2c_send_start_condition[obj->instance] = false;
     if (LPI2C_MasterStop(i2c_addrs[obj->instance]) != kStatus_Success) {
         return 1;
     }
+
+    obj->address_set = 0;
 
     return 0;
 }
 
 void i2c_frequency(i2c_t *obj, int hz)
 {
-    uint32_t i2cClock;
+    uint32_t busClock;
 
-    i2cClock = CLOCK_GetIpFreq(i2c_clocks[obj->instance]);
-    LPI2C_MasterSetBaudRate(i2c_addrs[obj->instance], hz, i2cClock);
+    busClock = i2c_get_clock();
+    LPI2C_MasterSetBaudRate(i2c_addrs[obj->instance], busClock, hz);
 }
 
-
-/* Since this function is ment to be called with an address, the fsl driver functions can be used and the start condition is ignored */
 int i2c_read(i2c_t *obj, int address, char *data, int length, int stop)
 {
-    /* Remove pending start condition */
-    i2c_send_start_condition[obj->instance] = false;
-
     LPI2C_Type *base = i2c_addrs[obj->instance];
     lpi2c_master_transfer_t master_xfer;
 
-    i2c_address = address >> 1;
     memset(&master_xfer, 0, sizeof(master_xfer));
     master_xfer.slaveAddress = address >> 1;
     master_xfer.direction = kLPI2C_Read;
     master_xfer.data = (uint8_t *)data;
     master_xfer.dataSize = length;
-    if (obj->next_repeated_start) {
-        master_xfer.flags |= kLPI2C_TransferRepeatedStartFlag;
-    }
     if (!stop) {
         master_xfer.flags |= kLPI2C_TransferNoStopFlag;
     }
-    obj->next_repeated_start = master_xfer.flags & kLPI2C_TransferNoStopFlag ? 1 : 0;
 
     /* The below function will issue a STOP signal at the end of the transfer.
      * This is required by the hardware in order to receive the last byte
@@ -123,24 +122,40 @@ int i2c_read(i2c_t *obj, int address, char *data, int length, int stop)
 
 int i2c_write(i2c_t *obj, int address, const char *data, int length, int stop)
 {
-    /* Remove pending start condition */
-    i2c_send_start_condition[obj->instance] = false;
-    
     LPI2C_Type *base = i2c_addrs[obj->instance];
     lpi2c_master_transfer_t master_xfer;
+
+    if (length == 0) {
+        if (LPI2C_MasterStart(base, address >> 1, kLPI2C_Write) != kStatus_Success) {
+            return I2C_ERROR_NO_SLAVE;
+        }
+
+        /* Wait till START has been flushed out of the FIFO */
+        while (!(base->MSR & kLPI2C_MasterBusBusyFlag)) {
+        }
+
+        /* Send the STOP signal */
+        base->MTDR = LPI2C_MTDR_CMD(0x2U);
+
+        /* Wait till STOP has been sent successfully */
+        while (!(base->MSR & kLPI2C_MasterStopDetectFlag)) {
+        }
+
+        if (base->MSR & kLPI2C_MasterNackDetectFlag) {
+            return I2C_ERROR_NO_SLAVE;
+        } else {
+            return length;
+        }
+    }
 
     memset(&master_xfer, 0, sizeof(master_xfer));
     master_xfer.slaveAddress = address >> 1;
     master_xfer.direction = kLPI2C_Write;
     master_xfer.data = (uint8_t *)data;
     master_xfer.dataSize = length;
-    if (obj->next_repeated_start) {
-        master_xfer.flags |= kLPI2C_TransferRepeatedStartFlag;
-    }
     if (!stop) {
         master_xfer.flags |= kLPI2C_TransferNoStopFlag;
     }
-    obj->next_repeated_start = master_xfer.flags & kLPI2C_TransferNoStopFlag ? 1 : 0;
 
     if (LPI2C_MasterTransferBlocking(base, &master_xfer) != kStatus_Success) {
         return I2C_ERROR_NO_SLAVE;
@@ -156,10 +171,6 @@ void i2c_reset(i2c_t *obj)
 
 int i2c_byte_read(i2c_t *obj, int last)
 {
-    /* Remove pending start condition */
-    /* Due to hardware, it is impossible to send a start condition and read*/
-    i2c_send_start_condition[obj->instance] = false;
-
     uint8_t data;
     LPI2C_Type *base = i2c_addrs[obj->instance];
     lpi2c_master_transfer_t master_xfer;
@@ -168,44 +179,48 @@ int i2c_byte_read(i2c_t *obj, int last)
     master_xfer.direction = kLPI2C_Read;
     master_xfer.data = &data;
     master_xfer.dataSize = 1;
-
-    /* This function does not put a start or stop signal on the bus and is ment to be used after the bus is started
-    For this reason we will tell the driver not to send either a start or a stop condition */
     master_xfer.flags = kLPI2C_TransferNoStopFlag | kLPI2C_TransferNoStartFlag;
 
     if (LPI2C_MasterTransferBlocking(base, &master_xfer) != kStatus_Success) {
         return I2C_ERROR_NO_SLAVE;
     }
-
     return data;
 }
 
 int i2c_byte_write(i2c_t *obj, int data)
 {
     LPI2C_Type *base = i2c_addrs[obj->instance];
-    lpi2c_master_transfer_t master_xfer;
-    status_t ret_value;
+    uint32_t status;
+    size_t txCount;
+    size_t txFifoSize = FSL_FEATURE_LPI2C_FIFO_SIZEn(base);
 
-    /* If we havent sent the start condition and need to do it here. Then send data as the address of the slave */
-    memset(&master_xfer, 0, sizeof(master_xfer));
-    /* This gets transfered as first byte if start condition needed */
-    master_xfer.slaveAddress = data;
-    master_xfer.direction = kLPI2C_Write;
-    /* Data from .data is sent if not sending start condition */
-    master_xfer.data = &data;
-    master_xfer.dataSize = i2c_send_start_condition[obj->instance] ? 0 : 1;
-    master_xfer.flags = kLPI2C_TransferNoStopFlag;
-    /* Set the kLPI2C_TransferNoStartFlag if no start condition to be sent */
-    master_xfer.flags |= i2c_send_start_condition[obj->instance] ? 0 : kLPI2C_TransferNoStartFlag;
+    /* Clear error flags. */
+    LPI2C_MasterClearStatusFlags(base, LPI2C_MasterGetStatusFlags(base));
 
-    /* Remove pending start condition */
-    i2c_send_start_condition[obj->instance] = false;
+    /* Wait till there is room in the TX FIFO */
+    do {
+        /* Get the number of words in the tx fifo and compute empty slots. */
+        LPI2C_MasterGetFifoCounts(base, NULL, &txCount);
+        txCount = txFifoSize - txCount;
+    } while (!txCount);
 
-    ret_value = LPI2C_MasterTransferBlocking(base, &master_xfer);
+    if (!obj->address_set) {
+        obj->address_set  = 1;
+        /* Issue start command. */
+        base->MTDR = LPI2C_MTDR_CMD(0x4U) | LPI2C_MTDR_DATA(data);
+    } else {
+        /* Write byte into LPI2C master data register. */
+        base->MTDR = data;
+    }
 
-    if (ret_value == kStatus_Success) {
+    /* Wait till data is pushed out of the FIFO */
+    while (!(base->MSR & kLPI2C_MasterTxReadyFlag)) {
+    }
+
+    status = LPI2C_MasterCheckAndClearError(base, LPI2C_MasterGetStatusFlags(base));
+    if (status == kStatus_Success) {
         return 1;
-    } else if (ret_value == kStatus_LPI2C_Nak) {
+    } else if (status == kStatus_LPI2C_Nak) {
         return 0;
     } else {
         return 2;
@@ -220,7 +235,7 @@ void i2c_slave_mode(i2c_t *obj, int enable_slave)
     LPI2C_SlaveGetDefaultConfig(&slave_config);
     slave_config.enableSlave = (bool)enable_slave;
 
-    LPI2C_SlaveInit(i2c_addrs[obj->instance], &slave_config, CLOCK_GetIpFreq(i2c_clocks[obj->instance]));
+    LPI2C_SlaveInit(i2c_addrs[obj->instance], &slave_config, i2c_get_clock());
 }
 
 int i2c_slave_receive(i2c_t *obj)
