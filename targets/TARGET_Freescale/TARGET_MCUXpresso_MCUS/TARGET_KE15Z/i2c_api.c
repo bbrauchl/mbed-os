@@ -23,11 +23,26 @@
 #include "fsl_lpi2c.h"
 #include "PeripheralPins.h"
 
+extern status_t LPI2C_MasterCheckAndClearError(LPI2C_Type *base, uint32_t status);
+
 /* Array of I2C peripheral base address. */
 static LPI2C_Type *const i2c_addrs[] = LPI2C_BASE_PTRS;
+static clock_ip_name_t const i2c_clocks[] = LPI2C_CLOCKS;
 
-extern void i2c_setup_clock();
-extern uint32_t i2c_get_clock();
+// extern void i2c_setup_clock(i2c_t *obj);
+// extern uint32_t i2c_get_clock(i2c_t *obj);
+
+void i2c_setup_clock(i2c_t *obj)
+{
+    CLOCK_SetIpSrc(i2c_clocks[(int)obj->instance], kCLOCK_IpSrcFircAsync);
+
+}
+
+uint32_t i2c_get_clock(i2c_t *obj)
+{
+    return CLOCK_GetIpFreq(i2c_clocks[(int)obj->instance]);
+}
+
 void pin_mode_opendrain(PinName pin, bool enable);
 
 void i2c_init(i2c_t *obj, PinName sda, PinName scl)
@@ -40,19 +55,16 @@ void i2c_init(i2c_t *obj, PinName sda, PinName scl)
 
     lpi2c_master_config_t master_config;
 
-    i2c_setup_clock();
+    i2c_setup_clock(obj);
 
     LPI2C_MasterGetDefaultConfig(&master_config);
-    LPI2C_MasterInit(i2c_addrs[obj->instance], &master_config, i2c_get_clock());
+    LPI2C_MasterInit(i2c_addrs[obj->instance], &master_config, i2c_get_clock(obj));
 
     pinmap_pinout(sda, PinMap_I2C_SDA);
     pinmap_pinout(scl, PinMap_I2C_SCL);
 
     pin_mode(sda, PullUp);
     pin_mode(scl, PullUp);
-
-    pin_mode_opendrain(sda, true);
-    pin_mode_opendrain(scl, true);
 }
 
 int i2c_start(i2c_t *obj)
@@ -92,7 +104,7 @@ void i2c_frequency(i2c_t *obj, int hz)
 {
     uint32_t busClock;
 
-    busClock = i2c_get_clock();
+    busClock = i2c_get_clock(obj);
     LPI2C_MasterSetBaudRate(i2c_addrs[obj->instance], busClock, hz);
 }
 
@@ -235,7 +247,7 @@ void i2c_slave_mode(i2c_t *obj, int enable_slave)
     LPI2C_SlaveGetDefaultConfig(&slave_config);
     slave_config.enableSlave = (bool)enable_slave;
 
-    LPI2C_SlaveInit(i2c_addrs[obj->instance], &slave_config, i2c_get_clock());
+    LPI2C_SlaveInit(i2c_addrs[obj->instance], &slave_config, i2c_get_clock(obj));
 }
 
 int i2c_slave_receive(i2c_t *obj)
