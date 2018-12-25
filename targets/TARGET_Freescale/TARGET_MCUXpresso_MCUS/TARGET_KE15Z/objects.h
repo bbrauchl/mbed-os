@@ -72,7 +72,7 @@ struct i2c_s {
 };
 
 struct spi_s {
-    uint32_t instance;
+    SPIName instance;
     uint8_t bits;
 #if DEVICE_SPI_ASYNCH
     status_t status;

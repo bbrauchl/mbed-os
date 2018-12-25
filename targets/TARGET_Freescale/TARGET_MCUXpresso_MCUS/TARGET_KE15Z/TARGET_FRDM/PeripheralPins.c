@@ -96,42 +96,41 @@ const PinMap PinMap_UART_RX[] = {
 
 /************SPI***************/
 const PinMap PinMap_SPI_SCLK[] = {
-    {PTD0,  LPSPI_1, 3},
-    {PTB2,  LPSPI_0, 3},
-    {PTB14, LPSPI_1, 3},
-    {PTE0,  LPSPI_0, 2},
+    {PTD0,  LPSPI1_PCS0, 3},
+    {PTB2,  LPSPI0_PCS0, 3},
+    {PTB14, LPSPI1_PCS0, 3},
+    {PTE0,  LPSPI0_PCS0, 2},
     {NC,    NC,      0}
 };
 
 /* Using pins labeled LPUARTx_Sout */
 const PinMap PinMap_SPI_MOSI[] = {
-    {PTB4,  LPSPI_0, 3},
-    {PTB1,  LPSPI_0, 3},
-    {PTB16, LPSPI_1, 3},
-    {PTD2,  LPSPI_1, 3},
-    {PTE2,  LPSPI_0, 2},
+    {PTB4,  LPSPI0_PCS0, 3},
+    {PTB1,  LPSPI0_PCS0, 3},
+    {PTB16, LPSPI1_PCS0, 3},
+    {PTD2,  LPSPI1_PCS0, 3},
+    {PTE2,  LPSPI0_PCS0, 2},
     {NC,    NC,      0}
 };
 
 /* Using pins labeled LPUARTx_SIN */
 const PinMap PinMap_SPI_MISO[] = {
-    {PTD1,  LPSPI_1, 3},
-    {PTB3,  LPSPI_0, 3},
-    {PTB15, LPSPI_1, 3},
-    {PTE1,  LPSPI_0, 2},
+    {PTD1,  LPSPI1_PCS0, 3},
+    {PTB3,  LPSPI0_PCS0, 3},
+    {PTB15, LPSPI1_PCS0, 3},
+    {PTE1,  LPSPI0_PCS0, 2},
     {NC,    NC,      0}
 };
 
 const PinMap PinMap_SPI_SSEL[] = {
-    {PTB0,  LPSPI_0, 3}, //PCS0
-    {PTD3,  LPSPI_1, 3}, //PCS0
-    /* Not currently supported in the api */
-    // {PTB5,  LPSPI_0, 3}, //PCS1
-    // {PTA6,  LPSPI_1, 3}, //PCS1
-    // {PTA16, LPSPI_1, 3}, //PCS2
-    // {PTE6,  LPSPI_0, 2}, //PCS2
-    // {PTA15, LPSPI_0, 3}, //PCS3
-    // {PTB17, LPSPI_1, 3}, //PCS3
+    {PTB0,  LPSPI0_PCS0, 3}, //PCS0
+    {PTD3,  LPSPI1_PCS0, 3}, //PCS0
+    {PTB5,  LPSPI0_PCS1, 3}, //PCS1
+    {PTA6,  LPSPI1_PCS1, 3}, //PCS1
+    {PTE6,  LPSPI0_PCS2, 2}, //PCS2
+    {PTA16, LPSPI1_PCS2, 3}, //PCS2
+    {PTA15, LPSPI0_PCS3, 3}, //PCS3
+    {PTB17, LPSPI1_PCS3, 3}, //PCS3
     {NC,   NC,      0}
 };
 
